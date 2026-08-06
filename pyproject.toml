@@ -22,3 +22,4 @@
 
 [tool.mypy]
   packages = ['backportlib', 'tests']
+  strict = true

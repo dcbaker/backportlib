@@ -1,0 +1,73 @@
+# SPDX-License-Identifier: MIT
+# Copyright © 2026 Intel Corporation
+
+"""Tests for the utilites package."""
+
+import pytest
+from typing import TYPE_CHECKING
+
+from backportlib.utils import process
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+
+class TestProcess:
+    """Tests for the Process module."""
+
+    class TestOutput:
+        """Tests for the output function."""
+
+        @pytest.mark.asyncio
+        async def test_basic(self) -> None:
+            """Basic stdout checking."""
+            ret = await process.output('python', ['--version'])
+            assert ret.is_ok()
+            assert ret.unwrap()[0].startswith(b'Python 3')
+
+        @pytest.mark.asyncio
+        async def test_non_existing(self) -> None:
+            """Error handling for non-existant binary."""
+            ret = await process.output('doesnt-exist')
+            assert not ret.is_ok()
+            assert isinstance(ret.unwrap_err(), FileNotFoundError)
+
+        @pytest.mark.asyncio
+        async def test_bad_arguments(self) -> None:
+            """Error handling for bad arguments."""
+            ret = await process.output('python', ['--bad-argument'])
+            assert not ret.is_ok()
+            assert isinstance(ret.unwrap_err(), process.FailedToRun)
+
+    class TestReturncode:
+        """Tests for the returncode function."""
+
+        @pytest.mark.asyncio
+        async def test_basic(self) -> None:
+            """Basic stdout checking."""
+            ret = await process.returncode('python', ['--version'])
+            assert ret.is_ok()
+
+        @pytest.mark.asyncio
+        async def test_non_existing(self) -> None:
+            """Error handling for non-existant binary."""
+            ret = await process.output('doesnt-exist')
+            assert not ret.is_ok()
+            assert isinstance(ret.unwrap_err(), FileNotFoundError)
+
+        @pytest.mark.asyncio
+        async def test_bad_arguments(self) -> None:
+            """Error handling for bad arguments."""
+            ret = await process.output('python', ['--bad-argument'])
+            assert not ret.is_ok()
+            assert isinstance(ret.unwrap_err(), process.FailedToRun)
+
+    class TestGit:
+        """Tests for the git function."""
+
+        @pytest.mark.asyncio
+        async def test_basic(self, tmp_path: Path) -> None:
+            """Simple test that checks the git command."""
+            repo = tmp_path.as_posix()
+            assert (await process.output('git', ['init', repo, '-q'])).is_ok()
+            assert (await process.git(repo, ['checkout', '-b', 'newbranch'])).is_ok()
