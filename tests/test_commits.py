@@ -166,6 +166,20 @@ class TestBackport:
         assert because == {'*'}
 
 
+class TestCherryPick:
+
+    def test_basic(self) -> None:
+        msg = """
+            This is a commit
+
+            (cherry picked from commit 0000000000000000000000000000000000000000)
+            """
+
+        c = commits.is_cherry_pick(msg)
+        assert c.is_something()
+        assert c.unwrap() == '0' * 40
+
+
 class TestParse:
 
     @pytest.mark.asyncio

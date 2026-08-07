@@ -9,6 +9,7 @@ import re
 from typing import TYPE_CHECKING
 
 from simple_monads.result import Success, stop_async
+from simple_monads.maybe import Nothing, Something
 
 from backportlib.utils.process import FailedToRun, git
 
@@ -16,12 +17,13 @@ if TYPE_CHECKING:
     from typing import Final
 
     from simple_monads.result import Result
+    from simple_monads.maybe import Maybe
 
 
 _IS_FIX = re.compile(r'^\s*fixes:\s*([a-f0-9]{6,40})', flags=re.MULTILINE | re.IGNORECASE)
 _IS_BACKPORT = re.compile(r'^\s*backport-to:\s*(?:(\d+\.\d+),?\s*(\d+\.\d+)?|(\*))',
                           flags=re.MULTILINE | re.IGNORECASE)
-
+_IS_CHERRY_PICK = re.compile(r'\(cherry picked from commit ([a-f0-9]{40})\)')
 
 @enum.unique
 class NominationStatus(enum.Enum):
@@ -49,6 +51,9 @@ class Commit:
         doc='The type of nomination for this patch')
     applied: bool = dataclasses.field(
         default=False, compare=False, doc='Whether this patch has been applied or not')
+    main_hashsum: Maybe[str] = dataclasses.field(
+        default=Nothing(), compare=False,
+        doc='If this is a cherry pick, the sha that this commit had on the main branch')
 
     def __hash__(self) -> int:
         return int(self.hashsum, base=16)
@@ -99,6 +104,17 @@ def is_backport(msg: str) -> Result[set[str], Exception]:
         backports = {'*'}
 
     return Success(backports)
+
+
+def is_cherry_pick(msg: str) -> Maybe[str]:
+    """Is this commit cherry picked from
+
+    :param msg: _description_
+    :return: _description_
+    """
+    if m := _IS_CHERRY_PICK.search(msg):
+        return Something(m.group(1))
+    return Nothing()
 
 
 @stop_async
