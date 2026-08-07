@@ -87,7 +87,7 @@ class TestBackport:
             backport-to: *
             """
 
-        backports = commits.is_backport('', msg)
+        backports = commits.is_backport(msg)
         assert backports.is_ok()
         because = backports.unwrap()
         assert len(because) == 1
@@ -101,7 +101,7 @@ class TestBackport:
             backport-to: 11.22
             """
 
-        backports = commits.is_backport('', msg)
+        backports = commits.is_backport(msg)
         assert backports.is_ok()
         because = backports.unwrap()
         assert len(because) == 1
@@ -115,7 +115,7 @@ class TestBackport:
             backport-to: 11.22      22.33
             """
 
-        backports = commits.is_backport('', msg)
+        backports = commits.is_backport(msg)
         assert backports.is_ok()
         because = backports.unwrap()
         assert len(because) == 2
@@ -129,7 +129,7 @@ class TestBackport:
             backport-to: * 11.22      22.33
             """
 
-        backports = commits.is_backport('', msg)
+        backports = commits.is_backport(msg)
         assert backports.is_ok()
         because = backports.unwrap()
         assert len(because) == 1
@@ -144,7 +144,7 @@ class TestBackport:
             backport-to: 11.22 *     22.33
             """
 
-        backports = commits.is_backport('', msg)
+        backports = commits.is_backport(msg)
         assert backports.is_ok()
         because = backports.unwrap()
         assert len(because) == 1
@@ -159,7 +159,7 @@ class TestBackport:
             backport-to: 11.22     22.33     *
             """
 
-        backports = commits.is_backport('', msg)
+        backports = commits.is_backport(msg)
         assert backports.is_ok()
         because = backports.unwrap()
         assert len(because) == 1

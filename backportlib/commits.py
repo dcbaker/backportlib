@@ -66,6 +66,12 @@ async def _full_sha(repo: str, sha: str) -> Result[str, FileNotFoundError | Fail
 
 @stop_async
 async def is_fix(repo: str, msg: str) -> Result[set[str], Exception]:
+    """Extract any `fixes:` tags in the commit message.
+
+    :param repo: The Repo that this commit is from.
+    :param msg: The commit message of this commit.
+    :return: Success with the commit sha or an Error with an exception.
+    """
     because = set[str]()
 
     for fix in _IS_FIX.finditer(msg):
@@ -76,7 +82,12 @@ async def is_fix(repo: str, msg: str) -> Result[set[str], Exception]:
     return Success(because)
 
 
-def is_backport(repo: str, msg: str) -> Result[set[str], Exception]:
+def is_backport(msg: str) -> Result[set[str], Exception]:
+    """Extract any `backport-to:` tag in the commit message.
+
+    :param msg: The commit message of this commit.
+    :return: Success with a set of backport tags or an Error with an exception.
+    """
     backports = set[str]()
     if m := _IS_BACKPORT.findall(msg):
         for match in m:
@@ -92,10 +103,17 @@ def is_backport(repo: str, msg: str) -> Result[set[str], Exception]:
 
 @stop_async
 async def parse_commit(repo: str, sha: str, msg: str) -> Result[Commit, Exception]:
+    """create a Commit object from commit data.
+
+    :param repo: The repo that the commit is from.
+    :param sha: the hash of the commit.
+    :param msg: the commit message of the commit.
+    :return: A Success with the Commit object or an Error with an Exception.
+    """
     if len(sha) != 40:
         sha = (await _full_sha(repo, sha)).propagate()
 
     fixes = (await is_fix(repo, msg)).propagate()
-    backports = is_backport(repo, msg).propagate()
+    backports = is_backport(msg).propagate()
 
     return Success(Commit(sha, fixes, backports))
