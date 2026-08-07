@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 
 _IS_FIX = re.compile(r'^\s*fixes:\s*([a-f0-9]{6,40})', flags=re.MULTILINE | re.IGNORECASE)
-_IS_BACKPORT = re.compile(r'^\s*backport-to:\s*(?:(\d{2}\.\d),?\s*(\d{2}\.\d)?|(\*))',
+_IS_BACKPORT = re.compile(r'^\s*backport-to:\s*(?:(\d+\.\d+),?\s*(\d+\.\d+)?|(\*))',
                           flags=re.MULTILINE | re.IGNORECASE)
 
 
@@ -63,9 +63,23 @@ async def _full_sha(repo: str, sha: str) -> Result[str, FileNotFoundError | Fail
 async def is_fix(repo: str, msg: str) -> Result[set[str], Exception]:
     because = set[str]()
 
-    for fix in re.finditer(_IS_FIX, msg):
+    for fix in _IS_FIX.finditer(msg):
         if fix:
             full_sha = (await _full_sha(repo, fix.group(1))).propagate()
             because.add(full_sha)
 
     return Success(because)
+
+
+def is_backport(repo: str, msg: str) -> Result[set[str], Exception]:
+    backports = set[str]()
+    if m := _IS_BACKPORT.findall(msg):
+        for match in m:
+            for backport in match:
+                if backport:
+                    backports.add(backport)
+
+    if '*' in backports:
+        backports = {'*'}
+
+    return Success(backports)
