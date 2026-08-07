@@ -24,7 +24,7 @@ _IS_BACKPORT = re.compile(r'^\s*backport-to:\s*(?:(\d+\.\d+),?\s*(\d+\.\d+)?|(\*
 
 
 @enum.unique
-class Status(enum.Enum):
+class NominationStatus(enum.Enum):
     """Backport status of a commit."""
 
     UNCLASSIFIED = 0
@@ -32,21 +32,26 @@ class Status(enum.Enum):
     DENOMINATED = 2
     FIXES = 3
     BACKPORT = 4
-    MERGED = 5
+    MANUAL_BACKPORT = 5
 
 
 @dataclasses.dataclass(slots=True, order=True)
 class Commit:
     """The representation of a commit"""
 
-    hashsum: Final[int] = dataclasses.field(doc='The hash of this commit, currently sha256')
-    because: set[str] = dataclasses.field(
+    hashsum: Final[str] = dataclasses.field(doc='The hash of this commit, currently sha256')
+    fixes: set[str] = dataclasses.field(
         default_factory=set, compare=False, doc='The set of commits that this commit fixes')
-    status: Status = dataclasses.field(
-        default=Status.UNCLASSIFIED, compare=False, doc='The status of this patch')
+    backports: set[str] = dataclasses.field(
+        default_factory=set, compare=False, doc='The set of versions that this ')
+    nomination: NominationStatus = dataclasses.field(
+        default=NominationStatus.UNCLASSIFIED, compare=False,
+        doc='The type of nomination for this patch')
+    applied: bool = dataclasses.field(
+        default=False, compare=False, doc='Whether this patch has been applied or not')
 
     def __hash__(self) -> int:
-        return self.hashsum
+        return int(self.hashsum, base=16)
 
 
 async def _full_sha(repo: str, sha: str) -> Result[str, FileNotFoundError | FailedToRun]:
@@ -83,3 +88,14 @@ def is_backport(repo: str, msg: str) -> Result[set[str], Exception]:
         backports = {'*'}
 
     return Success(backports)
+
+
+@stop_async
+async def parse_commit(repo: str, sha: str, msg: str) -> Result[Commit, Exception]:
+    if len(sha) != 40:
+        sha = (await _full_sha(repo, sha)).propagate()
+
+    fixes = (await is_fix(repo, msg)).propagate()
+    backports = is_backport(repo, msg).propagate()
+
+    return Success(Commit(sha, fixes, backports))

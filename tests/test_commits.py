@@ -164,3 +164,23 @@ class TestBackport:
         because = backports.unwrap()
         assert len(because) == 1
         assert because == {'*'}
+
+
+class TestParse:
+
+    @pytest.mark.asyncio
+    async def test_basic(self, patch_full_sha: None) -> None:
+        msg = """\
+            commit: This is a commit
+
+            fixes: abc123456 ("foo")
+            fixes: def123456 ("foo")
+            backport-to: 25.3
+            """
+
+        p = await commits.parse_commit('', '123abc456', msg)
+        assert p.is_ok()
+        c = p.unwrap()
+        assert c.hashsum.endswith('123abc456')
+        assert len(c.fixes) == 2
+        assert len(c.backports) == 1
