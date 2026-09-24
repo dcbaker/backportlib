@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 @pytest.fixture
 def patch_full_sha(monkeypatch: MonkeyPatch) -> None:
     async def _full_sha(repo: str, sha: str) -> Result[str, FileNotFoundError | FailedToRun]:
-        return Success('{:0>40}'.format(sha))
+        return Success(f'{sha:0>40}')
 
     monkeypatch.setattr(commits, '_full_sha', _full_sha)
 
