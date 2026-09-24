@@ -8,16 +8,16 @@ import enum
 import re
 from typing import TYPE_CHECKING
 
-from simple_monads.result import Success, stop_async
 from simple_monads.maybe import Nothing, Something
+from simple_monads.result import Success, stop_async
 
 from backportlib.utils.process import FailedToRun, git
 
 if TYPE_CHECKING:
     from typing import Final
 
-    from simple_monads.result import Result
     from simple_monads.maybe import Maybe
+    from simple_monads.result import Result
 
 
 _IS_FIX = re.compile(r'^\s*fixes:\s*([a-f0-9]{6,40})', flags=re.MULTILINE | re.IGNORECASE)

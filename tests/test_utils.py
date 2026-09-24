@@ -3,8 +3,9 @@
 
 """Tests for the utilites package."""
 
-import pytest
 from typing import TYPE_CHECKING
+
+import pytest
 
 from backportlib.utils import process
 
