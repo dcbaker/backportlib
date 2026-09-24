@@ -13,6 +13,9 @@
   ]
   readme = "README.md"
   requires-python = ">=3.14"
+  dependencies = [
+    "pydantic >=2,<3",
+  ]
 
   [project.urls]
     Home = "https://github.com/dcbaker/backportlib"
@@ -22,6 +25,7 @@
 
 [tool.mypy]
   packages = ['backportlib', 'tests']
+  plugins = ["pydantic.mypy"]
   strict = true
 
 [tool.ruff]

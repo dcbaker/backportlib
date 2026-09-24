@@ -6,6 +6,7 @@
 from typing import TYPE_CHECKING
 
 import pytest
+from pydantic import BaseModel
 from simple_monads.result import Success
 
 from backportlib import commits
@@ -198,3 +199,13 @@ class TestParse:
         assert c.hashsum.endswith('123abc456')
         assert len(c.fixes) == 2
         assert len(c.backports) == 1
+
+
+class TestCommit:
+
+    def test_is_pydantic_model(self) -> None:
+        first = commits.Commit(hashsum='1')
+        second = commits.Commit(hashsum='2')
+
+        assert isinstance(first, BaseModel)
+        assert first.__dict__['fixes'] is not second.__dict__['fixes']

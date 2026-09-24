@@ -3,27 +3,26 @@
 
 """Processing of git commits."""
 
-import dataclasses
 import enum
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
-from simple_monads.maybe import Nothing, Something
+from pydantic import BaseModel, ConfigDict, Field
+from simple_monads.maybe import Maybe, Nothing, Something
 from simple_monads.result import Success, stop_async
 
 from backportlib.utils.process import FailedToRun, git
 
 if TYPE_CHECKING:
-    from typing import Final
-
-    from simple_monads.maybe import Maybe
     from simple_monads.result import Result
 
 
-_IS_FIX = re.compile(r'^\s*fixes:\s*([a-f0-9]{6,40})', flags=re.MULTILINE | re.IGNORECASE)
+_IS_FIX = re.compile(
+    r'^\s*fixes:\s*([a-f0-9]{6,40})', flags=re.MULTILINE | re.IGNORECASE)
 _IS_BACKPORT = re.compile(r'^\s*backport-to:\s*(?:(\d+\.\d+),?\s*(\d+\.\d+)?|(\*))',
                           flags=re.MULTILINE | re.IGNORECASE)
 _IS_CHERRY_PICK = re.compile(r'\(cherry picked from commit ([a-f0-9]{40})\)')
+
 
 @enum.unique
 class NominationStatus(enum.Enum):
@@ -37,23 +36,29 @@ class NominationStatus(enum.Enum):
     MANUAL_BACKPORT = 5
 
 
-@dataclasses.dataclass(slots=True, order=True)
-class Commit:
+class Commit(BaseModel):
     """The representation of a commit"""
 
-    hashsum: Final[str] = dataclasses.field(doc='The hash of this commit, currently sha256')
-    fixes: set[str] = dataclasses.field(
-        default_factory=set, compare=False, doc='The set of commits that this commit fixes')
-    backports: set[str] = dataclasses.field(
-        default_factory=set, compare=False, doc='The set of versions that this ')
-    nomination: NominationStatus = dataclasses.field(
-        default=NominationStatus.UNCLASSIFIED, compare=False,
-        doc='The type of nomination for this patch')
-    applied: bool = dataclasses.field(
-        default=False, compare=False, doc='Whether this patch has been applied or not')
-    main_hashsum: Maybe[str] = dataclasses.field(
-        default=Nothing(), compare=False,
-        doc='If this is a cherry pick, the sha that this commit had on the main branch')
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    hashsum: Final[str] = Field(description='The hash of this commit, currently sha256')
+    fixes: set[str] = Field(
+        default_factory=set, description='The set of commits that this commit fixes')
+    backports: set[str] = Field(
+        default_factory=set, description='The set of versions that this commit targets')
+    nomination: NominationStatus = Field(
+        default=NominationStatus.UNCLASSIFIED,
+        description='The type of nomination for this patch')
+    applied: bool = Field(
+        default=False, description='Whether this patch has been applied or not')
+    main_hashsum: Maybe[str] = Field(
+        default_factory=Nothing,
+        description='If this is a cherry pick, the sha that this commit had on the main branch')
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Commit):
+            return NotImplemented
+        return self.hashsum == other.hashsum
 
     def __hash__(self) -> int:
         return int(self.hashsum, base=16)
@@ -132,4 +137,4 @@ async def parse_commit(repo: str, sha: str, msg: str) -> Result[Commit, Exceptio
     fixes = (await is_fix(repo, msg)).propagate()
     backports = is_backport(msg).propagate()
 
-    return Success(Commit(sha, fixes, backports))
+    return Success(Commit(hashsum=sha, fixes=fixes, backports=backports))

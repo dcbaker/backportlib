@@ -13,7 +13,7 @@
   // "forwardPorts": [],
 
   // Use 'postCreateCommand' to run commands after the container is created.
-  "postCreateCommand": "pip3 install --user mypy ruff pydocstyle pylint flit simple_py_monads pytest pytest-asyncio",
+  "postCreateCommand": "pip3 install --user mypy ruff flit simple_py_monads pydantic pytest pytest-asyncio",
 
   // Configure tool-specific properties.
   "customizations": {
@@ -22,7 +22,6 @@
         "EditorConfig.EditorConfig",
         "charliermarsh.ruff",
         "ms-python.mypy-type-checker",
-        "ms-python.pylint",
         "ms-python.python",
         "ms-python.vscode-pylance",
         "njpwerner.autodocstring",
