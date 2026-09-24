@@ -27,6 +27,7 @@
   packages = ['backportlib', 'tests']
   plugins = ["pydantic.mypy"]
   strict = true
+  warn_unreachable = true
 
 [tool.ruff]
   line-length = 100
