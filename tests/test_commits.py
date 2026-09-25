@@ -14,6 +14,8 @@ from simple_monads.result import Success
 from backportlib import commits
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from pytest import MonkeyPatch
     from simple_monads.result import Result
 
@@ -32,7 +34,7 @@ class TestFix:
     """Test for fixes detection."""
 
     @pytest.mark.asyncio
-    async def test_single_fix(self, patch_full_sha: None) -> None:
+    async def test_single_fix(self, tmp_path: Path, patch_full_sha: None) -> None:
         """Find a single fix."""
         msg = """\
             commit: This is a commit
@@ -40,14 +42,14 @@ class TestFix:
             fixes: abc123456 ("foo")
             """
 
-        fixes = await commits.is_fix('', msg)
+        fixes = await commits.is_fix(tmp_path, msg)
         assert fixes.is_ok()
         because = fixes.unwrap()
         assert len(because) == 1
         assert '{:0>40}'.format('abc123456') in because
 
     @pytest.mark.asyncio
-    async def test_multiline_fix(self, patch_full_sha: None) -> None:
+    async def test_multiline_fix(self, tmp_path: Path, patch_full_sha: None) -> None:
         """Find a single fix on multiple lines."""
         msg = """\
             commit: This is a commit
@@ -56,14 +58,14 @@ class TestFix:
                    ("foo")
             """
 
-        fixes = await commits.is_fix('', msg)
+        fixes = await commits.is_fix(tmp_path, msg)
         assert fixes.is_ok()
         because = fixes.unwrap()
         assert len(because) == 1
         assert '{:0>40}'.format('abc123456') in because
 
     @pytest.mark.asyncio
-    async def test_multiple_fixes(self, patch_full_sha: None) -> None:
+    async def test_multiple_fixes(self, tmp_path: Path, patch_full_sha: None) -> None:
         """Find multiple fixes."""
         msg = """\
             commit: This is a commit
@@ -72,12 +74,12 @@ class TestFix:
             fixes: def123456 ("foo")
             """
 
-        fixes = await commits.is_fix('', msg)
+        fixes = await commits.is_fix(tmp_path, msg)
         assert fixes.is_ok()
         because = fixes.unwrap()
         assert len(because) == 2
         assert because.issubset(
-            {(await commits._full_sha('', s)).unwrap() for s in ['abc123456', 'def123456']}
+            {(await commits._full_sha(tmp_path, s)).unwrap() for s in ['abc123456', 'def123456']}
         )
 
 
@@ -184,7 +186,7 @@ class TestCherryPick:
 
 class TestParse:
     @pytest.mark.asyncio
-    async def test_basic(self, patch_full_sha: None) -> None:
+    async def test_basic(self, tmp_path: Path, patch_full_sha: None) -> None:
         msg = """\
             commit: This is a commit
 
@@ -194,7 +196,7 @@ class TestParse:
             (cherry picked from commit 0000000000000000000000000000000000000000)
             """
 
-        p = await commits.parse_commit('', '123abc456', msg)
+        p = await commits.parse_commit(tmp_path, '123abc456', msg)
         assert p.is_ok()
         c = p.unwrap()
         assert c.hashsum.endswith('123abc456')

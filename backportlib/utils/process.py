@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
+import pathlib
 from typing import TYPE_CHECKING
 
 from simple_monads.result import Error, Success, stop, wrap
@@ -71,7 +72,7 @@ async def returncode(
 
 
 async def git(
-    repo: str, args: list[str]
+    repo: pathlib.Path, args: list[str]
 ) -> Result[tuple[bytes, bytes], FileNotFoundError | FailedToRun]:
     """Run a git command.
 
@@ -79,4 +80,4 @@ async def git(
     :param args: The arguments to pass to git in addition to the repo
     :return: A Success holding (stdout, stderr) or an Error holding the returncode
     """
-    return await output('git', ['-C', repo] + args)
+    return await output('git', ['-C', str(repo)] + args)

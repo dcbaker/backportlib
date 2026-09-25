@@ -71,6 +71,6 @@ class TestProcess:
         @pytest.mark.asyncio
         async def test_basic(self, tmp_path: Path) -> None:
             """Simple test that checks the git command."""
-            repo = tmp_path.as_posix()
-            assert (await process.output('git', ['init', repo, '-q'])).is_ok()
+            repo = tmp_path
+            assert (await process.output('git', ['init', str(repo), '-q'])).is_ok()
             assert (await process.git(repo, ['checkout', '-b', 'newbranch'])).is_ok()

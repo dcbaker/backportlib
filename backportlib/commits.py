@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import enum
+import pathlib
 import re
 from typing import TYPE_CHECKING, Final
 
@@ -68,10 +69,10 @@ class Commit(BaseModel):
         return int(self.hashsum, base=16)
 
 
-async def _full_sha(repo: str, sha: str) -> Result[str, FileNotFoundError | FailedToRun]:
+async def _full_sha(repo: pathlib.Path, sha: str) -> Result[str, FileNotFoundError | FailedToRun]:
     """Expand a short sha into a full sha.
 
-    :param repo: The git repo to act on
+    :param repo: The git repo (as a pathlib.Path) to act on
     :param sha: The sha to be lengthened
     :return: A Success with the full sha, or an Error with an Exception
     """
@@ -79,7 +80,7 @@ async def _full_sha(repo: str, sha: str) -> Result[str, FileNotFoundError | Fail
 
 
 @stop
-async def is_fix(repo: str, msg: str) -> Result[set[str], Exception]:
+async def is_fix(repo: pathlib.Path, msg: str) -> Result[set[str], Exception]:
     """Extract any `fixes:` tags in the commit message.
 
     :param repo: The git repository that this commit is from.
@@ -125,7 +126,7 @@ def is_cherry_pick(msg: str) -> Maybe[str]:
 
 
 @stop
-async def parse_commit(repo: str, sha: str, msg: str) -> Result[Commit, Exception]:
+async def parse_commit(repo: pathlib.Path, sha: str, msg: str) -> Result[Commit, Exception]:
     """Create a Commit object from commit data.
 
     :param repo: The repo that the commit is from.
