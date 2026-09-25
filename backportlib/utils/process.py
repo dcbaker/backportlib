@@ -15,15 +15,15 @@ if TYPE_CHECKING:
 
 @dataclasses.dataclass
 class FailedToRun(Exception):
-
     """An Exception for processes that failed to run."""
 
     returncode: int
 
 
 @wrap(FileNotFoundError)
-async def _start_cmd(cmd: str, args: list[str] | None = None, *,
-                     capture: bool = True) -> asyncio.subprocess.Process:
+async def _start_cmd(
+    cmd: str, args: list[str] | None = None, *, capture: bool = True
+) -> asyncio.subprocess.Process:
     """Helper to start a command.
 
     :param cmd: The command to run
@@ -32,15 +32,15 @@ async def _start_cmd(cmd: str, args: list[str] | None = None, *,
     :return: A :class:`asyncio.subprocess.Process` object
     """
     pipe = asyncio.subprocess.PIPE if capture else asyncio.subprocess.DEVNULL
-    p = await asyncio.create_subprocess_exec(
-        cmd, *(args or []), stdout=pipe, stderr=pipe)
+    p = await asyncio.create_subprocess_exec(cmd, *(args or []), stdout=pipe, stderr=pipe)
 
     return p
 
 
 @stop
-async def output(cmd: str, args: list[str] | None = None
-                 ) -> Result[tuple[bytes, bytes], FileNotFoundError | FailedToRun]:
+async def output(
+    cmd: str, args: list[str] | None = None
+) -> Result[tuple[bytes, bytes], FileNotFoundError | FailedToRun]:
     """Run a command and get its output.
 
     :param cmd: The command as a string
@@ -55,8 +55,9 @@ async def output(cmd: str, args: list[str] | None = None
 
 
 @stop
-async def returncode(cmd: str, args: list[str] | None = None
-                     ) -> Result[None, FileNotFoundError | FailedToRun]:
+async def returncode(
+    cmd: str, args: list[str] | None = None
+) -> Result[None, FileNotFoundError | FailedToRun]:
     """Run a command and get its returncode.
 
     :param cmd: The command as a string
@@ -69,8 +70,9 @@ async def returncode(cmd: str, args: list[str] | None = None
     return Success(None)
 
 
-async def git(repo: str, args: list[str]
-              ) -> Result[tuple[bytes, bytes], FileNotFoundError | FailedToRun]:
+async def git(
+    repo: str, args: list[str]
+) -> Result[tuple[bytes, bytes], FileNotFoundError | FailedToRun]:
     """Run a git command.
 
     :param repo: The repo to run the git command on

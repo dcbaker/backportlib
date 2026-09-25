@@ -76,12 +76,12 @@ class TestFix:
         assert fixes.is_ok()
         because = fixes.unwrap()
         assert len(because) == 2
-        assert because.issubset({(await commits._full_sha('', s)).unwrap()
-                                  for s in ['abc123456', 'def123456']})
+        assert because.issubset(
+            {(await commits._full_sha('', s)).unwrap() for s in ['abc123456', 'def123456']}
+        )
 
 
 class TestBackport:
-
     def test_single_star(self) -> None:
         """Find a backport with a single star."""
         msg = """\
@@ -170,7 +170,6 @@ class TestBackport:
 
 
 class TestCherryPick:
-
     def test_basic(self) -> None:
         msg = """
             This is a commit
@@ -184,7 +183,6 @@ class TestCherryPick:
 
 
 class TestParse:
-
     @pytest.mark.asyncio
     async def test_basic(self, patch_full_sha: None) -> None:
         msg = """\
@@ -204,7 +202,6 @@ class TestParse:
 
 
 class TestCommit:
-
     def test_is_pydantic_model(self) -> None:
         first = commits.Commit(hashsum='1')
         second = commits.Commit(hashsum='2')

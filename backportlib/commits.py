@@ -19,10 +19,10 @@ if TYPE_CHECKING:
     from simple_monads.result import Result
 
 
-_IS_FIX = re.compile(
-    r'^\s*fixes:\s*([a-f0-9]{6,40})', flags=re.MULTILINE | re.IGNORECASE)
-_IS_BACKPORT = re.compile(r'^\s*backport-to:\s*(?:(\d+\.\d+),?\s*(\d+\.\d+)?|(\*))',
-                          flags=re.MULTILINE | re.IGNORECASE)
+_IS_FIX = re.compile(r'^\s*fixes:\s*([a-f0-9]{6,40})', flags=re.MULTILINE | re.IGNORECASE)
+_IS_BACKPORT = re.compile(
+    r'^\s*backport-to:\s*(?:(\d+\.\d+),?\s*(\d+\.\d+)?|(\*))', flags=re.MULTILINE | re.IGNORECASE
+)
 _IS_CHERRY_PICK = re.compile(r'\(cherry picked from commit ([a-f0-9]{40})\)')
 
 
@@ -45,17 +45,19 @@ class Commit(BaseModel):
 
     hashsum: Final[str] = Field(description='The hash of this commit, currently sha1')
     fixes: set[str] = Field(
-        default_factory=set, description='The set of commits that this commit fixes')
+        default_factory=set, description='The set of commits that this commit fixes'
+    )
     backports: set[str] = Field(
-        default_factory=set, description='The set of versions that this commit targets')
+        default_factory=set, description='The set of versions that this commit targets'
+    )
     nomination: NominationStatus = Field(
-        default=NominationStatus.UNCLASSIFIED,
-        description='The type of nomination for this patch')
-    applied: bool = Field(
-        default=False, description='Whether this patch has been applied or not')
+        default=NominationStatus.UNCLASSIFIED, description='The type of nomination for this patch'
+    )
+    applied: bool = Field(default=False, description='Whether this patch has been applied or not')
     main_hashsum: Maybe[str] = Field(
         default_factory=Nothing,
-        description='If this is a cherry pick, the sha that this commit had on the main branch')
+        description='If this is a cherry pick, the sha that this commit had on the main branch',
+    )
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Commit):
