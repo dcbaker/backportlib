@@ -98,11 +98,10 @@ def is_backport(msg: str) -> Result[set[str], Exception]:
     :return: Success with a set of backport tags or an Error with an exception.
     """
     backports = set[str]()
-    if m := _IS_BACKPORT.findall(msg):
-        for match in m:
-            for backport in match:
-                if backport:
-                    backports.add(backport)
+    for match in _IS_BACKPORT.finditer(msg):
+        for backport in match.groups():
+            if backport:
+                backports.add(backport)
 
     if '*' in backports:
         backports = {'*'}
