@@ -41,7 +41,7 @@ class Commit(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    hashsum: Final[str] = Field(description='The hash of this commit, currently sha256')
+    hashsum: Final[str] = Field(description='The hash of this commit, currently sha1')
     fixes: set[str] = Field(
         default_factory=set, description='The set of commits that this commit fixes')
     backports: set[str] = Field(
@@ -68,28 +68,27 @@ async def _full_sha(repo: str, sha: str) -> Result[str, FileNotFoundError | Fail
     """Expand a short sha into a full sha.
 
     :param repo: The git repo to act on
-    :param sha: The shat to be lengthened
+    :param sha: The sha to be lengthened
     :return: A Success with the full sha, or an Error with an Exception
     """
-    return (await git(repo, ['rev-parse', sha])).and_then(lambda x: Success(x[0].decode()))
+    return (await git(repo, ['rev-parse', sha])).and_then(lambda x: Success(x[0].decode().strip()))
 
 
 @stop
 async def is_fix(repo: str, msg: str) -> Result[set[str], Exception]:
     """Extract any `fixes:` tags in the commit message.
 
-    :param repo: The Repo that this commit is from.
+    :param repo: The git repository that this commit is from.
     :param msg: The commit message of this commit.
     :return: Success with the commit sha or an Error with an exception.
     """
-    because = set[str]()
+    fixed_shas = set[str]()
 
     for fix in _IS_FIX.finditer(msg):
-        if fix:
-            full_sha = (await _full_sha(repo, fix.group(1))).propagate()
-            because.add(full_sha)
+        full_sha = (await _full_sha(repo, fix.group(1))).propagate()
+        fixed_shas.add(full_sha)
 
-    return Success(because)
+    return Success(fixed_shas)
 
 
 def is_backport(msg: str) -> Result[set[str], Exception]:
@@ -114,8 +113,8 @@ def is_backport(msg: str) -> Result[set[str], Exception]:
 def is_cherry_pick(msg: str) -> Maybe[str]:
     """Is this commit cherry picked from
 
-    :param msg: _description_
-    :return: _description_
+    :param msg: The commit message of this commit.
+    :return: A Maybe with the cherry pick sha if it exists, or Nothing otherwise.
     """
     if m := _IS_CHERRY_PICK.search(msg):
         return Something(m.group(1))
@@ -124,7 +123,7 @@ def is_cherry_pick(msg: str) -> Maybe[str]:
 
 @stop
 async def parse_commit(repo: str, sha: str, msg: str) -> Result[Commit, Exception]:
-    """create a Commit object from commit data.
+    """Create a Commit object from commit data.
 
     :param repo: The repo that the commit is from.
     :param sha: the hash of the commit.
