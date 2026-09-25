@@ -191,6 +191,7 @@ class TestParse:
             fixes: abc123456 ("foo")
             fixes: def123456 ("foo")
             backport-to: 25.3
+            (cherry picked from commit 0000000000000000000000000000000000000000)
             """
 
         p = await commits.parse_commit('', '123abc456', msg)
@@ -199,6 +200,8 @@ class TestParse:
         assert c.hashsum.endswith('123abc456')
         assert len(c.fixes) == 2
         assert len(c.backports) == 1
+        assert c.main_hashsum.is_something()
+        assert c.main_hashsum.unwrap() == '0' * 40
 
 
 class TestCommit:

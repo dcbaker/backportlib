@@ -138,5 +138,6 @@ async def parse_commit(repo: str, sha: str, msg: str) -> Result[Commit, Exceptio
 
     fixes = (await is_fix(repo, msg)).propagate()
     backports = is_backport(msg).propagate()
+    cherry_pick = is_cherry_pick(msg)
 
-    return Success(Commit(hashsum=sha, fixes=fixes, backports=backports))
+    return Success(Commit(hashsum=sha, fixes=fixes, backports=backports, main_hashsum=cherry_pick))
