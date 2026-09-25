@@ -15,6 +15,7 @@ from simple_monads.maybe import Maybe, Nothing, Something
 from simple_monads.result import Success, stop
 
 from backportlib.utils.process import FailedToRun, git
+from backportlib.utils.utils import find
 
 if TYPE_CHECKING:
     from simple_monads.result import Result
@@ -28,15 +29,77 @@ _IS_CHERRY_PICK = re.compile(r'\(cherry picked from commit ([a-f0-9]{40})\)')
 
 
 @enum.unique
-class NominationStatus(enum.Enum):
-    """Backport status of a commit."""
+class NominationType(enum.Enum):
+    """Backport status of a commit.
+
+    Information about the kind of nomination this commit has received.
+
+    .. note::
+        This does not indicate whether a patch is backported or not, simply whether
+        it has been nominated for backport, and the kind of nomination it has.
+
+    .. note::
+        see also :class:`BackportStatus` for the current backport status of this commit.
+    """
 
     UNCLASSIFIED = 0
+    """This commit has not yet been classified for backporting."""
+
     UNNOMINATED = 1
+    """This commit has not been nominated for backporting."""
+
     DENOMINATED = 2
+    """This commit was nominated for backporting, but has been rejected."""
+
     FIXES = 3
+    """This commit has been nominated due to fixing one or more commits."""
+
     BACKPORT = 4
+    """This commit has been nominated due to a backport tag."""
+
     MANUAL_BACKPORT = 5
+    """This commiit was not automatically nominted, but has since been manuall nominated."""
+
+
+@enum.unique
+class BackportStatus(enum.Enum):
+    """Backport status of a commit.
+
+    The current status of this commit with respect to backporting.
+
+    .. note::
+        This does not reflect the kind of nomination this has, but whether it is
+        applied, queued, or not queued for backport.
+
+    .. note::
+        see also :class:`NominationType` for the nomination status of this commit.
+    """
+
+    NOT_NOMINATED = 0
+    """This commit has not been nominated for backporting."""
+
+    WAITING = 1
+    """This commit is ready to be backported."""
+
+    BLOCKED = 2
+    """This commit is blocked from being backported.
+
+    This means that it is a valid backport, but that there are other backports
+    waiting to be applied that must be applied first.
+    """
+
+    MANUAL_BACKPORT_REQUIRED = 3
+    """This commit requires a manual backport.
+
+    This means that the backport has conflicts or requires manual intervention
+    to be applied.
+    """
+
+    APPLIED = 4
+    """This commit has been successfully backported."""
+
+    MISSING_DEPENDENCIES = 5
+    """This commit is missing dependencies required for backporting."""
 
 
 class Commit(BaseModel):
@@ -51,17 +114,24 @@ class Commit(BaseModel):
     backports: set[str] = Field(
         default_factory=set, description='The set of versions that this commit targets'
     )
-    nomination: NominationStatus = Field(
-        default=NominationStatus.UNCLASSIFIED, description='The type of nomination for this patch'
+    nomination: NominationType = Field(
+        default=NominationType.UNCLASSIFIED, description='The type of nomination for this patch'
     )
-    applied: bool = Field(default=False, description='Whether this patch has been applied or not')
+    status: BackportStatus = Field(
+        default=BackportStatus.NOT_NOMINATED,
+        description='The current backport status of this patch',
+    )
     main_hashsum: Maybe[str] = Field(
         default_factory=Nothing,
         description='If this is a cherry pick, the sha that this commit had on the main branch',
     )
-    requires: set[str] = Field(
+    blocked_by: set[str] = Field(
         default_factory=set,
         description='The set of commits that this commit requires to be applied before it can be applied.',
+    )
+    blocking: set[str] = Field(
+        default_factory=set,
+        description='The set of commits that this commit prevents from being applied until it is applied.',
     )
 
     @staticmethod
@@ -96,14 +166,25 @@ class Commit(BaseModel):
         """
         return v.map(cls.__validate_hash)
 
-    @field_validator('requires', mode='after')
+    @field_validator('blocked_by', mode='after')
     @classmethod
-    def _validate_requires(cls, v: set[str]) -> set[str]:
-        """Validate that all required commits have valid hashsums.
+    def _validate_blocked_by(cls, v: set[str]) -> set[str]:
+        """Validate that all blocked_by commits have valid hashsums.
 
-        :param v: The set of required commit hashsums.
+        :param v: The set of blocked_by commit hashsums.
         :raises ValueError: If any hashsum is not a valid sha1 string.
-        :return: The validated set of required commit hashsums.
+        :return: The validated set of blocked_by commit hashsums.
+        """
+        return {cls.__validate_hash(h) for h in v}
+
+    @field_validator('blocking', mode='after')
+    @classmethod
+    def _validate_blocking(cls, v: set[str]) -> set[str]:
+        """Validate that all blocking commits have valid hashsums.
+
+        :param v: The set of blocking commit hashsums.
+        :raises ValueError: If any hashsum is not a valid sha1 string.
+        :return: The validated set of blocking commit hashsums.
         """
         return {cls.__validate_hash(h) for h in v}
 
@@ -189,3 +270,104 @@ async def parse_commit(repo: pathlib.Path, sha: str, msg: str) -> Result[Commit,
     cherry_pick = is_cherry_pick(msg)
 
     return Success(Commit(hashsum=sha, fixes=fixes, backports=backports, main_hashsum=cherry_pick))
+
+
+async def set_nomination(
+    new: list[Commit], existing: list[Commit], repo: pathlib.Path, branch: str
+) -> None:
+    """Set the nomination type and required fields for each patch.
+
+    If a patch has a fixes or backport field, we need nominate it if:
+      - the current branch matches the target branch
+      - a fixes tag matches a commit in the tree
+      - a fixes tag matches the main_hashsum of a commit in the tree
+      - a fixes tag fixes a commit in the list of nominated patches
+        in this case we need to set the requires field so that we don't attempt
+        to apply a patch that doesn't have it's pre-requisites met.
+
+    :param new: The list of new commits to be considered for nomination.
+    :param existing: The list of existing commits in the repository.
+    :param repo: The path to the repository.
+    :param branch: The current branch to backport to.
+    """
+    # first, build a set of all known cherry pick hashes we need to
+    # account for
+    cherry_picked = {h for c in existing if (h := c.main_hashsum.get()) is not None}
+    to_commit = {h.hashsum for h in new}
+
+    for commit in new:
+        if commit.backports and ('*' in commit.backports or branch in commit.backports):
+            commit.nomination = NominationType.BACKPORT
+            commit.status = BackportStatus.WAITING
+            continue
+
+        if commit.fixes:
+            commit.nomination = NominationType.FIXES
+
+            if commit.fixes.issubset(cherry_picked):
+                # If the commit has fixes, and all of those fixes are the cherry_pick list,
+                # then we can nominate it as a fix.
+                commit.status = BackportStatus.WAITING
+            else:
+                # Otherwise, we first remove any fixes that are not in the cherry_pick list,
+                # then we use git to see if those remaining fixes exist in the
+                # repository.
+                needed = commit.fixes - cherry_picked
+
+                for need in list(needed):
+                    if need in to_commit:
+                        blocker = find(lambda x, n=need: x.hashsum == n, new)  # type: ignore[misc]
+                        msg = (
+                            'Somehow we did not find the needed commit, which should have been '
+                            'in the new commits list per the check above.'
+                        )
+                        blocker.unwrap(msg).blocking.add(commit.hashsum)
+                        commit.blocked_by.add(need)
+
+                if commit.blocked_by == needed:
+                    commit.status = BackportStatus.BLOCKED
+                    continue
+
+                if not needed:
+                    commit.status = BackportStatus.WAITING
+                    continue
+
+                # Check if the needed patches are already applied in the branch
+                # before the branch point
+                for need in needed.copy():
+                    res = await git(repo, ['merge-base', '--is-ancestor', need, branch])
+                    if res:
+                        needed.remove(need)
+
+                if not needed:
+                    commit.status = BackportStatus.WAITING
+                    continue
+
+                # finally, check the to_commit set, if all of the remaining
+                # needed commits are in to_commit, we set the status to blocked,
+                # as this can be applied once the blocked commits are applied.
+                # if they are not all in the to_commit set, we mark the commit
+                # as not applicable, since not all of the needed commits are
+                # available in the to_commit set.
+                # TODO: What if the missing commits are later backported, and
+                # ths end up in the cherry_picked set?
+                if missing := needed - to_commit:
+                    commit.status = BackportStatus.MISSING_DEPENDENCIES
+                    commit.blocked_by.update(missing)
+                    continue
+
+                # Create a relationship between this commit and the commits it is blocked by.
+                commit.status = BackportStatus.BLOCKED
+                commit.blocked_by.update(needed)
+                for need in needed:
+                    # Mypy can't infer the lambda type for some reason, pylance can.
+                    blocker = find(lambda x, n=need: x.hashsum == n, new)  # type: ignore[misc]
+                    msg = (
+                        'Somehow we did not find the needed commit, which should have been '
+                        'in the new commits list per the check above.'
+                    )
+                    blocker.unwrap(msg).blocking.add(commit.hashsum)
+                    commit.blocked_by.add(need)
+        else:
+            commit.nomination = NominationType.UNNOMINATED
+            commit.status = BackportStatus.NOT_NOMINATED
