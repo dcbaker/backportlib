@@ -20,15 +20,18 @@ class FailedToRun(Exception):
 
 
 @wrap(FileNotFoundError)
-async def _start_cmd(cmd: str, args: list[str] | None = None) -> asyncio.subprocess.Process:
+async def _start_cmd(cmd: str, args: list[str] | None = None, *,
+                     capture: bool = True) -> asyncio.subprocess.Process:
     """Helper to start a command.
 
     :param cmd: The command to run
     :param args: The arguments to pass to that command
-    :return: A Process object
+    :param capture: Whether to capture the output of the command or not (default: True)
+    :return: A :class:`asyncio.subprocess.Process` object
     """
+    pipe = asyncio.subprocess.PIPE if capture else asyncio.subprocess.DEVNULL
     p = await asyncio.create_subprocess_exec(
-        cmd, *(args or []), stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        cmd, *(args or []), stdout=pipe, stderr=pipe)
 
     return p
 
@@ -43,10 +46,10 @@ async def output(cmd: str, args: list[str] | None = None
     :return: A Success holding (stdout, stderr) or an Error holding an error
     """
     p = (await _start_cmd(cmd, args)).propagate()
-    ret = await p.wait()
-    if ret == 0:
-        return Success(await p.communicate())
-    return Error(FailedToRun(ret))
+    std = await p.communicate()
+    if ret := p.returncode:
+        return Error(FailedToRun(ret))
+    return Success(std)
 
 
 @stop
@@ -56,13 +59,12 @@ async def returncode(cmd: str, args: list[str] | None = None
 
     :param cmd: The command as a string
     :param args: The list of arguments to pass to that command
-    :return: A Success holding Nothing or an Error holding the returncode
+    :return: A Success holding None or an Error holding the returncode
     """
-    p = (await _start_cmd(cmd, args)).propagate()
-    ret = await p.wait()
-    if ret == 0:
-        return Success(None)
-    return Error(FailedToRun(ret))
+    p = (await _start_cmd(cmd, args, capture=False)).propagate()
+    if ret := await p.wait():
+        return Error(FailedToRun(ret))
+    return Success(None)
 
 
 async def git(repo: str, args: list[str]
