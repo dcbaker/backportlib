@@ -26,7 +26,11 @@
         "ms-python.vscode-pylance",
         "njpwerner.autodocstring",
         "tamasfe.even-better-toml",
-      ]
+      ],
+      "settings": {
+        "python.testing.unittestEnabled": false,
+        "python.testing.pytestEnabled": true
+      }
     }
   },
 
