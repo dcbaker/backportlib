@@ -10,7 +10,7 @@ import pathlib
 import re
 from typing import TYPE_CHECKING, Final
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from simple_monads.maybe import Maybe, Nothing, Something
 from simple_monads.result import Success, stop
 
@@ -59,6 +59,53 @@ class Commit(BaseModel):
         default_factory=Nothing,
         description='If this is a cherry pick, the sha that this commit had on the main branch',
     )
+    requires: set[str] = Field(
+        default_factory=set,
+        description='The set of commits that this commit requires to be applied before it can be applied.',
+    )
+
+    @staticmethod
+    def __validate_hash(v: str) -> str:
+        if not v:
+            raise ValueError('hashsum cannot be empty')
+        if not re.fullmatch(r'[a-f0-9]{40}', v):
+            raise ValueError('hashsum must be a valid sha1 string')
+        return v
+
+    @field_validator('hashsum', mode='before')
+    @classmethod
+    def _validate_hashsum(cls, v: str) -> str:
+        """Validate that the hashsum is is a valid sha1 string.
+
+        It must be 40 characters long, and only contain hexadecimal characters.
+
+        :param v: The hashsum to validate.
+        :raises ValueError: If the hashsum is empty or not a valid sha1 string.
+        :return: The validated hashsum.
+        """
+        return cls.__validate_hash(v)
+
+    @field_validator('main_hashsum', mode='before')
+    @classmethod
+    def _validate_main_hashsum(cls, v: Maybe[str]) -> Maybe[str]:
+        """Validate that the main_hashsum is a valid sha1 string if it is not None.
+
+        :param v: The main_hashsum to validate.
+        :raises ValueError: If the main_hashsum is not a valid sha1 string.
+        :return: The validated main_hashsum.
+        """
+        return v.map(cls.__validate_hash)
+
+    @field_validator('requires', mode='after')
+    @classmethod
+    def _validate_requires(cls, v: set[str]) -> set[str]:
+        """Validate that all required commits have valid hashsums.
+
+        :param v: The set of required commit hashsums.
+        :raises ValueError: If any hashsum is not a valid sha1 string.
+        :return: The validated set of required commit hashsums.
+        """
+        return {cls.__validate_hash(h) for h in v}
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Commit):
