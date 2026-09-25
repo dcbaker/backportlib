@@ -5,7 +5,7 @@ import asyncio
 import dataclasses
 from typing import TYPE_CHECKING
 
-from simple_monads.result import Error, Success, stop_async, wrap_result_async
+from simple_monads.result import Error, Success, stop, wrap
 
 if TYPE_CHECKING:
     from simple_monads.result import Result
@@ -19,7 +19,7 @@ class FailedToRun(Exception):
     returncode: int
 
 
-@wrap_result_async(FileNotFoundError)
+@wrap(FileNotFoundError)
 async def _start_cmd(cmd: str, args: list[str] | None = None) -> asyncio.subprocess.Process:
     """Helper to start a command.
 
@@ -33,7 +33,7 @@ async def _start_cmd(cmd: str, args: list[str] | None = None) -> asyncio.subproc
     return p
 
 
-@stop_async
+@stop
 async def output(cmd: str, args: list[str] | None = None
                  ) -> Result[tuple[bytes, bytes], FileNotFoundError | FailedToRun]:
     """Run a command and get its output.
@@ -49,7 +49,7 @@ async def output(cmd: str, args: list[str] | None = None
     return Error(FailedToRun(ret))
 
 
-@stop_async
+@stop
 async def returncode(cmd: str, args: list[str] | None = None
                      ) -> Result[None, FileNotFoundError | FailedToRun]:
     """Run a command and get its returncode.

@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Final
 
 from pydantic import BaseModel, ConfigDict, Field
 from simple_monads.maybe import Maybe, Nothing, Something
-from simple_monads.result import Success, stop_async
+from simple_monads.result import Success, stop
 
 from backportlib.utils.process import FailedToRun, git
 
@@ -74,7 +74,7 @@ async def _full_sha(repo: str, sha: str) -> Result[str, FileNotFoundError | Fail
     return (await git(repo, ['rev-parse', sha])).and_then(lambda x: Success(x[0].decode()))
 
 
-@stop_async
+@stop
 async def is_fix(repo: str, msg: str) -> Result[set[str], Exception]:
     """Extract any `fixes:` tags in the commit message.
 
@@ -122,7 +122,7 @@ def is_cherry_pick(msg: str) -> Maybe[str]:
     return Nothing()
 
 
-@stop_async
+@stop
 async def parse_commit(repo: str, sha: str, msg: str) -> Result[Commit, Exception]:
     """create a Commit object from commit data.
 
