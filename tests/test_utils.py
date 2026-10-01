@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from backportlib.utils import process
+from backportlib.utils import process, utils
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -74,3 +74,27 @@ class TestProcess:
             repo = tmp_path
             assert (await process.output('git', ['init', str(repo), '-q'])).is_ok()
             assert (await process.git(repo, ['checkout', '-b', 'newbranch'])).is_ok()
+
+
+class TestUtils:
+    """Tests for the utils module."""
+
+    class TestFind:
+        """Tests for the find function."""
+
+        def test_match(self) -> None:
+            """A matching item is returned."""
+            ret = utils.find(lambda x: x == 2, [1, 2, 3])
+            assert ret.is_something()
+            assert ret.unwrap() == 2
+
+        def test_no_match(self) -> None:
+            """Nothing is returned when no item matches."""
+            ret = utils.find(lambda x: x == 4, [1, 2, 3])
+            assert ret.is_nothing()
+
+        def test_first_match(self) -> None:
+            """The first matching item is returned when multiple items match."""
+            ret = utils.find(lambda x: x[0] == 'a', [('b', 1), ('a', 2), ('a', 3)])
+            assert ret.is_something()
+            assert ret.unwrap() == ('a', 2)
