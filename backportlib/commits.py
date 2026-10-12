@@ -328,10 +328,6 @@ async def set_nomination(
                     commit.status = BackportStatus.BLOCKED
                     continue
 
-                if not needed:
-                    commit.status = BackportStatus.WAITING
-                    continue
-
                 # Check if the needed patches are already applied in the branch
                 # before the branch point
                 for need in needed.copy():
@@ -355,19 +351,6 @@ async def set_nomination(
                     commit.status = BackportStatus.MISSING_DEPENDENCIES
                     commit.blocked_by.update(missing)
                     continue
-
-                # Create a relationship between this commit and the commits it is blocked by.
-                commit.status = BackportStatus.BLOCKED
-                commit.blocked_by.update(needed)
-                for need in needed:
-                    # Mypy can't infer the lambda type for some reason, pylance can.
-                    blocker = find(lambda x, n=need: x.hashsum == n, new)  # type: ignore[misc]
-                    msg = (
-                        'Somehow we did not find the needed commit, which should have been '
-                        'in the new commits list per the check above.'
-                    )
-                    blocker.unwrap(msg).blocking.add(commit.hashsum)
-                    commit.blocked_by.add(need)
         else:
             commit.nomination = NominationType.UNNOMINATED
             commit.status = BackportStatus.NOT_NOMINATED
