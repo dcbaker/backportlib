@@ -14,6 +14,8 @@ from simple_monads.result import Error, Success
 
 from backportlib import commits
 
+from .utils import make_commit
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -29,10 +31,6 @@ def patch_full_sha(monkeypatch: MonkeyPatch) -> None:
         return Success(f'{sha:0>40}')
 
     monkeypatch.setattr(commits, '_full_sha', _full_sha)
-
-
-def _make_commit(num: int) -> str:
-    return f'{num:0>40}'
 
 
 class TestFix:
@@ -213,7 +211,7 @@ class TestParse:
 
 @pytest.mark.parametrize(
     ('main_hashsum', 'serialized_value'),
-    [(Nothing(), None), (Something(_make_commit(2)), _make_commit(2))],
+    [(Nothing(), None), (Something(make_commit(2)), make_commit(2))],
     ids=['nothing', 'something'],
 )
 @pytest.mark.parametrize('nomination', list(commits.NominationType))
@@ -229,13 +227,13 @@ def test_commit_round_trip(
     fields: dict[str, object] = {}
     if populated:
         fields = {
-            'fixes': {_make_commit(3)},
+            'fixes': {make_commit(3)},
             'backports': {'25.3', '25.4'},
-            'blocked_by': {_make_commit(4)},
-            'blocking': {_make_commit(5)},
+            'blocked_by': {make_commit(4)},
+            'blocking': {make_commit(5)},
         }
     original = commits.Commit(
-        hashsum=_make_commit(1),
+        hashsum=make_commit(1),
         main_hashsum=main_hashsum,
         nomination=nomination,
         status=status,
@@ -273,34 +271,34 @@ class TestSetNomination:
             tmp_path = tmp_path_factory.mktemp('set-nomination')
             to_pick: list[commits.Commit] = [
                 commits.Commit(
-                    hashsum=_make_commit(1), fixes={_make_commit(10)}
+                    hashsum=make_commit(1), fixes={make_commit(10)}
                 ),  # fixes already committed tests
                 commits.Commit(
-                    hashsum=_make_commit(2), fixes={_make_commit(11)}
+                    hashsum=make_commit(2), fixes={make_commit(11)}
                 ),  # fixes test that is in cherry_picked set
                 commits.Commit(
-                    hashsum=_make_commit(3), fixes={_make_commit(1)}
+                    hashsum=make_commit(3), fixes={make_commit(1)}
                 ),  # fixes test that is queued but not yet applied
                 commits.Commit(
-                    hashsum=_make_commit(4), fixes={_make_commit(10), _make_commit(11)}
+                    hashsum=make_commit(4), fixes={make_commit(10), make_commit(11)}
                 ),  # fixes two tests, one of which is already committed, one is in the cherry-picked set
                 commits.Commit(
-                    hashsum=_make_commit(5), fixes={_make_commit(12)}
+                    hashsum=make_commit(5), fixes={make_commit(12)}
                 ),  # fixes test that is neither in the cherry_picked set nor already applied
                 commits.Commit(
-                    hashsum=_make_commit(6), fixes={_make_commit(11), _make_commit(12)}
+                    hashsum=make_commit(6), fixes={make_commit(11), make_commit(12)}
                 ),  # applies to cherry-picked commit but missing one dependency
                 commits.Commit(
-                    hashsum=_make_commit(7), fixes={_make_commit(10), _make_commit(12)}
+                    hashsum=make_commit(7), fixes={make_commit(10), make_commit(12)}
                 ),  # applies to previously applied commit but missing one dependency
                 commits.Commit(
-                    hashsum=_make_commit(8),
-                    fixes={_make_commit(10), _make_commit(11), _make_commit(12)},
+                    hashsum=make_commit(8),
+                    fixes={make_commit(10), make_commit(11), make_commit(12)},
                 ),  # applies to cherry-picked and previously applied commits but missing one dependency
             ]
 
             cherry_picked: list[commits.Commit] = [
-                commits.Commit(hashsum=_make_commit(20), main_hashsum=Something(_make_commit(11))),
+                commits.Commit(hashsum=make_commit(20), main_hashsum=Something(make_commit(11))),
             ]
             for c in cherry_picked:
                 c.status = commits.BackportStatus.APPLIED
@@ -309,7 +307,7 @@ class TestSetNomination:
                 _repo: Path, _args: list[str]
             ) -> Result[tuple[bytes, bytes], Exception]:
                 need = _args[2]
-                if need in {_make_commit(10)}:
+                if need in {make_commit(10)}:
                     return Success((b'stdout', b'stderr'))
                 return Error(Exception('need not found'))
 
@@ -374,7 +372,7 @@ class TestSetNomination:
             com = to_pick[4]
             assert com.nomination is commits.NominationType.FIXES
             assert com.status is commits.BackportStatus.MISSING_DEPENDENCIES
-            assert com.blocked_by == {_make_commit(12)}
+            assert com.blocked_by == {make_commit(12)}
             assert not com.blocking
 
         @pytest.mark.asyncio
@@ -385,7 +383,7 @@ class TestSetNomination:
             com = to_pick[5]
             assert com.nomination is commits.NominationType.FIXES
             assert com.status is commits.BackportStatus.MISSING_DEPENDENCIES
-            assert com.blocked_by == {_make_commit(12)}
+            assert com.blocked_by == {make_commit(12)}
             assert not com.blocking
 
         @pytest.mark.asyncio
@@ -396,7 +394,7 @@ class TestSetNomination:
             com = to_pick[6]
             assert com.nomination is commits.NominationType.FIXES
             assert com.status is commits.BackportStatus.MISSING_DEPENDENCIES
-            assert com.blocked_by == {_make_commit(12)}
+            assert com.blocked_by == {make_commit(12)}
             assert not com.blocking
 
         @pytest.mark.asyncio
@@ -407,7 +405,7 @@ class TestSetNomination:
             com = to_pick[7]
             assert com.nomination is commits.NominationType.FIXES
             assert com.status is commits.BackportStatus.MISSING_DEPENDENCIES
-            assert com.blocked_by == {_make_commit(12)}
+            assert com.blocked_by == {make_commit(12)}
             assert not com.blocking
 
     class TestBackport:
@@ -420,18 +418,18 @@ class TestSetNomination:
         ) -> list[commits.Commit]:
             tmp_path = tmp_path_factory.mktemp('set-nomination')
             to_pick: list[commits.Commit] = [
-                commits.Commit(hashsum=_make_commit(1), backports={'*'}),  # should be backported
+                commits.Commit(hashsum=make_commit(1), backports={'*'}),  # should be backported
                 commits.Commit(
-                    hashsum=_make_commit(2), backports={'stable'}
+                    hashsum=make_commit(2), backports={'stable'}
                 ),  # should be backported
                 commits.Commit(
-                    hashsum=_make_commit(3), backports={'stable', 'old-stable'}
+                    hashsum=make_commit(3), backports={'stable', 'old-stable'}
                 ),  # should be backported
                 commits.Commit(
-                    hashsum=_make_commit(4), backports={'old-stable'}
+                    hashsum=make_commit(4), backports={'old-stable'}
                 ),  # should not be backported
                 commits.Commit(
-                    hashsum=_make_commit(5), backports={'*'}, fixes={_make_commit(100)}
+                    hashsum=make_commit(5), backports={'*'}, fixes={make_commit(100)}
                 ),  # should be backported as a backport, not a fix
             ]
 
@@ -439,7 +437,7 @@ class TestSetNomination:
                 _repo: Path, _args: list[str]
             ) -> Result[tuple[bytes, bytes], Exception]:
                 need = _args[2]
-                if need in {_make_commit(100)}:
+                if need in {make_commit(100)}:
                     return Success((b'stdout', b'stderr'))
                 return Error(Exception('need not found'))
 
