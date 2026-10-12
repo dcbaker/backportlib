@@ -11,13 +11,14 @@ import re
 from typing import TYPE_CHECKING, Final
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from simple_monads.maybe import Maybe, Nothing, Something
+from simple_monads.maybe import Nothing, Something
 from simple_monads.result import Success, stop
 
 from backportlib.utils.process import FailedToRun, git
 from backportlib.utils.utils import find
 
 if TYPE_CHECKING:
+    from simple_monads.maybe import Maybe
     from simple_monads.result import Result
 
 
