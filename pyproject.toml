@@ -18,6 +18,10 @@
     "pydantic >=2,<3",
   ]
 
+  [dependency-groups]
+    test = ["pytest", "pytest_asyncio", "pytest_mock"]
+    lint = ["ruff", "mypy"]
+
   [project.urls]
     Home = "https://github.com/dcbaker/backportlib"
 
