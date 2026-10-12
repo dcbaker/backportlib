@@ -166,25 +166,14 @@ class Commit(BaseModel):
         """
         return v.map(cls.__validate_hash)
 
-    @field_validator('blocked_by', mode='after')
+    @field_validator('blocked_by', 'blocking', mode='after')
     @classmethod
     def _validate_blocked_by(cls, v: set[str]) -> set[str]:
-        """Validate that all blocked_by commits have valid hashsums.
+        """Validate that all blocked_by and blocking commits have valid hashsums.
 
-        :param v: The set of blocked_by commit hashsums.
+        :param v: The set of blocked_by or blocking commit hashsums.
         :raises ValueError: If any hashsum is not a valid sha1 string.
-        :return: The validated set of blocked_by commit hashsums.
-        """
-        return {cls.__validate_hash(h) for h in v}
-
-    @field_validator('blocking', mode='after')
-    @classmethod
-    def _validate_blocking(cls, v: set[str]) -> set[str]:
-        """Validate that all blocking commits have valid hashsums.
-
-        :param v: The set of blocking commit hashsums.
-        :raises ValueError: If any hashsum is not a valid sha1 string.
-        :return: The validated set of blocking commit hashsums.
+        :return: The validated set of blocked_by or blocking commit hashsums.
         """
         return {cls.__validate_hash(h) for h in v}
 
