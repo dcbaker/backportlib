@@ -47,7 +47,7 @@ class CommitList(BaseModel):
         self._file_path = path
         self._git_dir = git_dir
 
-    async def write(self) -> Result[None, OSError]:
+    async def save(self) -> Result[None, OSError]:
         """Write the commit list to its configured file path.
 
         :return: A Result indicating success or failure of the write operation.
@@ -115,9 +115,7 @@ class CommitList(BaseModel):
 
         # Get the list of commits since the last time we processed commits
         new_hashes_bytes, _ = (
-            await self._run_git(
-                'log', f'--pretty=format:%H{COMMIT_LOG_DIVIDER}%s', git_range
-            )
+            await self._run_git('log', f'--pretty=format:%H{COMMIT_LOG_DIVIDER}%s', git_range)
         ).propagate()
         new_hashes = new_hashes_bytes.decode('utf-8')
 

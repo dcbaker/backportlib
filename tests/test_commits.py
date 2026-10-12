@@ -4,6 +4,7 @@
 """Tests for the utilites package."""
 
 import json
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
@@ -13,16 +14,14 @@ from simple_monads.maybe import Maybe, Nothing, Something
 from simple_monads.result import Error, Success
 
 from backportlib import commits
+from backportlib.utils import process
+from backportlib.utils.process import FailedToRun
 
 from .utils import make_commit
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from pytest import MonkeyPatch
     from simple_monads.result import Result
-
-    from backportlib.utils.process import FailedToRun
 
 
 @pytest.fixture
@@ -31,6 +30,40 @@ def patch_full_sha(monkeypatch: MonkeyPatch) -> None:
         return Success(f'{sha:0>40}')
 
     monkeypatch.setattr(commits, '_full_sha', _full_sha)
+
+
+class TestFullSha:
+    """Tests for expanding short commit hashes."""
+
+    @pytest_asyncio.fixture(scope='class')
+    @staticmethod
+    async def repo(tmp_path_factory: pytest.TempPathFactory) -> Path:
+        repo = tmp_path_factory.mktemp('repo')
+        initialized = await process.output('git', ['init', '-q', str(repo)])
+        assert initialized.is_ok()
+        assert (await process.git(repo, ['config', 'user.name', 'Test User'])).is_ok()
+        assert (await process.git(repo, ['config', 'user.email', 'test@example.com'])).is_ok()
+
+        (repo / 'file.txt').write_text('test commit\n', encoding='utf-8')
+        assert (await process.git(repo, ['add', 'file.txt'])).is_ok()
+        assert (await process.git(repo, ['commit', '-q', '-m', 'Initial commit'])).is_ok()
+        return repo
+
+    @pytest.mark.asyncio
+    async def test_success(self, repo: Path) -> None:
+        hash_result = await process.git(repo, ['rev-parse', 'HEAD'])
+        assert hash_result.is_ok()
+        full_hash = hash_result.unwrap()[0].decode().strip()
+
+        expanded_hash = await commits._full_sha(repo, full_hash[:8])
+        assert expanded_hash.is_ok()
+        assert expanded_hash.unwrap() == full_hash
+
+    @pytest.mark.asyncio
+    async def test_git_error(self, repo: Path) -> None:
+        invalid_hash = await commits._full_sha(repo, 'not-a-commit')
+        assert invalid_hash.is_err()
+        assert isinstance(invalid_hash.unwrap_err(), FailedToRun)
 
 
 class TestFix:

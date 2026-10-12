@@ -22,7 +22,7 @@ async def test_write_and_load_from_disk(tmp_path: Path) -> None:
     git_path = tmp_path / 'repo'
     commit_list = CommitList(path=path, git_dir=git_path, commits=[Commit(hashsum=make_commit(0))])
 
-    result = await commit_list.write()
+    result = await commit_list.save()
 
     assert result.is_ok()
     assert path.is_file()
@@ -41,7 +41,7 @@ async def test_write_returns_error_when_parent_directory_is_missing(tmp_path: Pa
     git_path = tmp_path / 'repo'
     commit_list = CommitList(path=path, git_dir=git_path)
 
-    result = await commit_list.write()
+    result = await commit_list.save()
 
     assert result.is_err()
     assert not path.exists()
