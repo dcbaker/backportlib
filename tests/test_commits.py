@@ -3,12 +3,13 @@
 
 """Tests for the utilites package."""
 
+import json
 from typing import TYPE_CHECKING
 
 import pytest
 import pytest_asyncio
 import pytest_mock
-from simple_monads.maybe import Something
+from simple_monads.maybe import Maybe, Nothing, Something
 from simple_monads.result import Error, Success
 
 from backportlib import commits
@@ -28,6 +29,10 @@ def patch_full_sha(monkeypatch: MonkeyPatch) -> None:
         return Success(f'{sha:0>40}')
 
     monkeypatch.setattr(commits, '_full_sha', _full_sha)
+
+
+def _make_commit(num: int) -> str:
+    return f'{num:0>40}'
 
 
 class TestFix:
@@ -206,8 +211,54 @@ class TestParse:
         assert c.main_hashsum.unwrap() == '0' * 40
 
 
-def _make_commit(num: int) -> str:
-    return f'{num:0>40}'
+@pytest.mark.parametrize(
+    ('main_hashsum', 'serialized_value'),
+    [(Nothing(), None), (Something(_make_commit(2)), _make_commit(2))],
+    ids=['nothing', 'something'],
+)
+@pytest.mark.parametrize('nomination', list(commits.NominationType))
+@pytest.mark.parametrize('status', list(commits.BackportStatus))
+@pytest.mark.parametrize('populated', [False, True], ids=['empty-sets', 'populated-sets'])
+def test_commit_round_trip(
+    main_hashsum: Maybe[str],
+    serialized_value: str | None,
+    nomination: commits.NominationType,
+    status: commits.BackportStatus,
+    populated: bool,
+) -> None:
+    fields: dict[str, object] = {}
+    if populated:
+        fields = {
+            'fixes': {_make_commit(3)},
+            'backports': {'25.3', '25.4'},
+            'blocked_by': {_make_commit(4)},
+            'blocking': {_make_commit(5)},
+        }
+    original = commits.Commit(
+        hashsum=_make_commit(1),
+        main_hashsum=main_hashsum,
+        nomination=nomination,
+        status=status,
+        **fields,
+    )
+
+    dumped = original.model_dump()
+    assert dumped['main_hashsum'] == serialized_value
+    restored_from_python = commits.Commit.model_validate(dumped)
+    serialized = original.model_dump_json()
+    assert json.loads(serialized)['main_hashsum'] == serialized_value
+
+    restored = commits.Commit.model_validate_json(serialized)
+    for reloaded in (restored_from_python, restored):
+        assert reloaded.hashsum == original.hashsum
+        assert reloaded.fixes == original.fixes
+        assert reloaded.backports == original.backports
+        assert reloaded.nomination is nomination
+        assert reloaded.status is status
+        assert reloaded.main_hashsum.is_something() is main_hashsum.is_something()
+        assert reloaded.main_hashsum.get() == serialized_value
+        assert reloaded.blocked_by == original.blocked_by
+        assert reloaded.blocking == original.blocking
 
 
 class TestSetNomination:

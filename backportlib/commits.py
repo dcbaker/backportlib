@@ -6,19 +6,14 @@
 import enum
 import pathlib
 import re
-from typing import TYPE_CHECKING, Final
+from typing import Final
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
-from simple_monads.maybe import Nothing, Something
-from simple_monads.result import Success, stop
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
+from simple_monads.maybe import Maybe, Nothing, Something
+from simple_monads.result import Result, Success, stop
 
 from backportlib.utils.process import FailedToRun, git
 from backportlib.utils.utils import find
-
-if TYPE_CHECKING:
-    from simple_monads.maybe import Maybe
-    from simple_monads.result import Result
-
 
 _IS_FIX = re.compile(r'^\s*fixes:\s*([a-f0-9]{6,40})', flags=re.MULTILINE | re.IGNORECASE)
 _IS_BACKPORT = re.compile(
@@ -156,14 +151,22 @@ class Commit(BaseModel):
 
     @field_validator('main_hashsum', mode='before')
     @classmethod
-    def _validate_main_hashsum(cls, v: Maybe[str]) -> Maybe[str]:
+    def _validate_main_hashsum(cls, v: Maybe[str] | str | None) -> Maybe[str]:
         """Validate that the main_hashsum is a valid sha1 string if it is not None.
 
         :param v: The main_hashsum to validate.
         :raises ValueError: If the main_hashsum is not a valid sha1 string.
         :return: The validated main_hashsum.
         """
+        if v is None:
+            v = Nothing()
+        elif isinstance(v, str):
+            v = Something(v)
         return v.map(cls.__validate_hash)
+
+    @field_serializer('main_hashsum')
+    def _serialize_main_hashsum(self, v: Maybe[str]) -> str | None:
+        return v.get()
 
     @field_validator('blocked_by', 'blocking', mode='after')
     @classmethod
