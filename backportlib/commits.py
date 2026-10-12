@@ -3,8 +3,6 @@
 
 """Processing of git commits."""
 
-from __future__ import annotations
-
 import enum
 import pathlib
 import re

@@ -1,8 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Copyright © 2026 Intel Corporation
 
-from __future__ import annotations
-
 import asyncio
 import dataclasses
 import pathlib

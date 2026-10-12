@@ -6,8 +6,6 @@
 The little things you need that don't really have a good place.
 """
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING
 
 from simple_monads.maybe import Nothing, Something
