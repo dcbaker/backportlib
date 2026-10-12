@@ -139,7 +139,7 @@ class Commit(BaseModel):
         if not v:
             raise ValueError('hashsum cannot be empty')
         if not re.fullmatch(r'[a-f0-9]{40}', v):
-            raise ValueError('hashsum must be a valid sha1 string')
+            raise ValueError(f'hashsum must be a valid sha1 string: {v}')
         return v
 
     @field_validator('hashsum', mode='before')
