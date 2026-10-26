@@ -14,7 +14,7 @@
   readme = "README.md"
   requires-python = ">=3.14"
   dependencies = [
-    "simple_py_monads >= 0.0.8",
+    "simple_py_monads >= 0.0.10",
     "pydantic >=2,<3",
   ]
 
